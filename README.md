@@ -18,12 +18,49 @@ All thresholds are configurable via `.env`.
 
 ## Setup
 
-### Option A: with uv
+### Option A: system Python
 
 #### 1. Clone and install dependencies
 
 ```bash
-sudo git clone <repo> /opt/kiwipulse
+sudo apt install python3-requests python3-dotenv
+sudo git clone https://github.com/kwsp/kiwipulse.git /opt/kiwipulse
+```
+
+#### 2. Configure
+
+```bash
+cd /opt/kiwipulse
+cp .env.example .env
+$EDITOR .env
+```
+
+At minimum set `DISCORD_WEBHOOK_URL`. Configure `SERVICES`, `SSL_DOMAINS`, and `BACKUP_PATHS` for your server.
+
+#### 3. Test
+
+```bash
+cd /opt/kiwipulse && python3 main.py
+```
+
+#### 4. Install the cron job
+
+```bash
+crontab -e
+```
+
+```
+7 * * * * cd /opt/kiwipulse && python3 main.py >> /var/log/kiwipulse.log 2>&1
+```
+
+---
+
+### Option B: with uv
+
+#### 1. Clone and install dependencies
+
+```bash
+sudo git clone https://github.com/kwsp/kiwipulse.git /opt/kiwipulse
 cd /opt/kiwipulse
 uv sync
 ```
@@ -49,46 +86,11 @@ At minimum set `DISCORD_WEBHOOK_URL`. Configure `SERVICES`, `SSL_DOMAINS`, and `
 crontab -e
 ```
 
-Add this line (runs hourly, logs to syslog):
-
 ```
 7 * * * * /opt/kiwipulse/run.sh >> /var/log/kiwipulse.log 2>&1
 ```
 
 ---
-
-### Option B: system Python (no uv)
-
-#### 1. Clone and install dependencies
-
-```bash
-sudo apt install python3-requests python3-dotenv
-sudo git clone <repo> /opt/kiwipulse
-```
-
-#### 2. Configure
-
-```bash
-cd /opt/kiwipulse
-cp .env.example .env
-$EDITOR .env
-```
-
-#### 3. Test
-
-```bash
-cd /opt/kiwipulse && python3 main.py
-```
-
-#### 4. Install the cron job
-
-```bash
-crontab -e
-```
-
-```
-7 * * * * cd /opt/kiwipulse && python3 main.py >> /var/log/kiwipulse.log 2>&1
-```
 
 Rotate the log with logrotate (`/etc/logrotate.d/kiwipulse`):
 
