@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""System monitor - checks health and alerts via Discord webhook."""
+"""kiwipulse - system health monitor with Discord alerts."""
 
 import os
 import re
@@ -20,7 +20,7 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 DISK_ALERT_PCT = int(os.getenv("DISK_ALERT_PCT", "80"))
 INODE_ALERT_PCT = int(os.getenv("INODE_ALERT_PCT", "80"))
 LOAD_ALERT_MULTIPLIER = float(os.getenv("LOAD_ALERT_MULTIPLIER", "2.0"))  # x CPU count
-MEMORY_ALERT_PCT = int(os.getenv("MEMORY_ALERT_PCT", "90"))
+MEMORY_ALERT_PCT = int(os.getenv("MEMORY_ALERT_PCT", "70"))
 SSL_WARN_DAYS = int(os.getenv("SSL_WARN_DAYS", "30"))
 
 # Space-separated list of system services to check, e.g. "nginx postgresql ssh"

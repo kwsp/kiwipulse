@@ -1,4 +1,4 @@
-# system-monitor
+# kiwipulse
 
 Periodic system health checks with Discord alerts. Designed for Debian/Ubuntu servers with systemd.
 
@@ -21,8 +21,8 @@ All thresholds are configurable via `.env`.
 ### 1. Clone and install dependencies
 
 ```bash
-git clone <repo> /opt/system-monitor
-cd /opt/system-monitor
+git clone <repo> /opt/kiwipulse
+cd /opt/kiwipulse
 uv sync
 ```
 
@@ -50,13 +50,13 @@ crontab -e
 Add this line (runs hourly, logs to syslog):
 
 ```
-7 * * * * /opt/system-monitor/run.sh >> /var/log/system-monitor.log 2>&1
+7 * * * * /opt/kiwipulse/run.sh >> /var/log/kiwipulse.log 2>&1
 ```
 
-Rotate the log with logrotate (`/etc/logrotate.d/system-monitor`):
+Rotate the log with logrotate (`/etc/logrotate.d/kiwipulse`):
 
 ```
-/var/log/system-monitor.log {
+/var/log/kiwipulse.log {
     weekly
     rotate 4
     compress
@@ -75,7 +75,7 @@ Rotate the log with logrotate (`/etc/logrotate.d/system-monitor`):
 | `SSL_DOMAINS` | — | Space-separated domains to check SSL expiry |
 | `BACKUP_PATHS` | — | Comma-separated file/dir paths to check |
 | `DISK_ALERT_PCT` | `80` | Disk/inode usage alert threshold (%) |
-| `MEMORY_ALERT_PCT` | `90` | Memory usage alert threshold (%) |
+| `MEMORY_ALERT_PCT` | `70` | Memory usage alert threshold (%) |
 | `LOAD_ALERT_MULTIPLIER` | `2.0` | Load alert = this × CPU count |
 | `SSL_WARN_DAYS` | `30` | Days before cert expiry to warn |
 | `BACKUP_MAX_AGE_HOURS` | `26` | Max hours since backup last modified |
