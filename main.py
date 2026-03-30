@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """kiwipulse - system health monitor with Discord alerts."""
 
+import argparse
 import os
 import re
 import shutil
@@ -43,12 +44,18 @@ class Alert:
 @dataclass
 class CheckResult:
     alerts: list[Alert] = field(default_factory=list)
+    ok_lines: list[str] = field(default_factory=list)
+    verbose: bool = False
 
     def warn(self, category: str, message: str) -> None:
         self.alerts.append(Alert("warning", category, message))
 
     def critical(self, category: str, message: str) -> None:
         self.alerts.append(Alert("critical", category, message))
+
+    def ok(self, category: str, message: str) -> None:
+        if self.verbose:
+            self.ok_lines.append(f"OK {category} {message}")
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +67,8 @@ def check_disk(result: CheckResult) -> None:
         use_pct = int(part["use%"].rstrip("%"))
         if use_pct >= DISK_ALERT_PCT:
             result.critical("disk", f"{part['mounted']} usage at {use_pct}% ({part['used']}/{part['size']})")
+        else:
+            result.ok("disk", f"{part['mounted']} {use_pct}% used ({part['used']}/{part['size']})")
 
     for part in _df_inode_output():
         iuse_pct_str = part.get("iuse%", "0%").rstrip("%")
@@ -68,6 +77,8 @@ def check_disk(result: CheckResult) -> None:
         iuse_pct = int(iuse_pct_str)
         if iuse_pct >= INODE_ALERT_PCT:
             result.critical("disk", f"{part['mounted']} inode usage at {iuse_pct}%")
+        else:
+            result.ok("disk", f"{part['mounted']} inodes {iuse_pct}% used")
 
 
 def check_services(result: CheckResult) -> None:
@@ -89,6 +100,8 @@ def _check_service_list(result: CheckResult, services: list[str], user: bool) ->
             status = proc.stdout.strip()
             if status != "active":
                 result.critical("service", f"{svc!r}{label} is {status!r}")
+            else:
+                result.ok("service", f"{svc!r}{label} is active")
         except FileNotFoundError:
             result.warn("service", "systemctl not found — skipping service checks")
             break
@@ -117,6 +130,8 @@ def check_security_updates(result: CheckResult) -> None:
                 )
             elif upgradable:
                 result.warn("security", f"{len(upgradable)} package update(s) pending")
+            else:
+                result.ok("security", "all packages up to date")
         except subprocess.TimeoutExpired:
             result.warn("security", "apt-get update timed out")
         return
@@ -166,6 +181,8 @@ def check_ssl(result: CheckResult) -> None:
             elif days_left < SSL_WARN_DAYS:
                 level = "critical" if days_left < 7 else "warning"
                 getattr(result, level)("ssl", f"{domain}: cert expires in {days_left}d")
+            else:
+                result.ok("ssl", f"{domain}: cert valid for {days_left}d")
         except subprocess.TimeoutExpired:
             result.warn("ssl", f"{domain}: connection timed out")
         except Exception as e:
@@ -192,6 +209,8 @@ def check_backups(result: CheckResult) -> None:
                 "backup",
                 f"{path}: last modified {age_hours:.1f}h ago (threshold {max_age_hours}h)"
             )
+        else:
+            result.ok("backup", f"{path}: last modified {age_hours:.1f}h ago")
 
 
 def check_load_and_memory(result: CheckResult) -> None:
@@ -202,6 +221,8 @@ def check_load_and_memory(result: CheckResult) -> None:
     threshold = cpu_count * LOAD_ALERT_MULTIPLIER
     if load1 > threshold:
         result.critical("load", f"1-min load {load1:.2f} > threshold {threshold:.2f} ({cpu_count} CPUs)")
+    else:
+        result.ok("load", f"1-min load {load1:.2f} (threshold {threshold:.2f}, {cpu_count} CPUs)")
 
     # Memory
     try:
@@ -220,6 +241,11 @@ def check_load_and_memory(result: CheckResult) -> None:
                     "memory",
                     f"memory usage at {used_pct}% "
                     f"({_human(total - available)} used / {_human(total)} total)"
+                )
+            else:
+                result.ok(
+                    "memory",
+                    f"{used_pct}% used ({_human(total - available)} / {_human(total)})"
                 )
     except OSError:
         pass
@@ -324,7 +350,11 @@ def send_discord_alert(alerts: list[Alert]) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    result = CheckResult()
+    parser = argparse.ArgumentParser(description="kiwipulse system health monitor")
+    parser.add_argument("-v", "--verbose", action="store_true", help="print all checks, not just alerts")
+    args = parser.parse_args()
+
+    result = CheckResult(verbose=args.verbose)
 
     checks = [
         check_disk,
@@ -342,11 +372,13 @@ def main() -> None:
             result.warn("monitor", f"{check.__name__} failed: {e}")
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for line in result.ok_lines:
+        print(f"{ts} {line}")
     if result.alerts:
         for a in result.alerts:
             print(f"{ts} {a.level.upper()} {a.category} {a.message}")
         send_discord_alert(result.alerts)
-    else:
+    elif not result.ok_lines:
         print(f"{ts} OK all checks passed")
 
 
